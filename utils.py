@@ -65,9 +65,9 @@ class EarlyStopping:
             self.counter = 0
 
 
-def print_log(epoch, train_loss, val_loss):
+def print_log(epoch, train_loss, val_loss, total_epochs):
     print(
-        f"Epoch: {epoch + 1:03d} | Train Loss: {train_loss:.5f} | Val Loss: {val_loss:.5f}"
+        f"Epoch: {epoch + 1:03d}/{total_epochs:03d} | Train Loss: {train_loss:.5f} | Val Loss: {val_loss:.5f}"
     )
 
 def train(
@@ -140,7 +140,7 @@ def train(
 
         if log_fn is not None:  # si se pasa una funcion de log
             if (epoch + 1) % log_every == 0:  # loggeamos cada log_every epocas
-                log_fn(epoch, train_loss, val_loss)  # llamamos a la funcion de log
+                log_fn(epoch, train_loss, val_loss, epochs)  # llamamos a la funcion de log
 
         if do_early_stopping and early_stopping.early_stop:
             print(
