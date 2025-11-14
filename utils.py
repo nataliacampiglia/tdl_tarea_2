@@ -151,6 +151,72 @@ def train(
     return epoch_train_errors, epoch_val_errors
 
 
+def train_with_packing(
+    model,
+    optimizer,
+    criterion,
+    train_loader,
+    val_loader,
+    device,
+    do_early_stopping=True,
+    patience=5,
+    epochs=10,
+    log_fn=print_log,
+    log_every=1,
+):
+    """
+    Requiere que cada batch de los loaders sea (X, lens, y) y que el modelo acepte forward(X, lens).
+    """
+    epoch_train_errors = []
+    epoch_val_errors = []
+    if do_early_stopping:
+        early_stopping = EarlyStopping(patience=patience)
+
+    for epoch in range(epochs):
+        # --------- train ---------
+        model.train()
+        train_loss = 0.0
+        for X, lens, y in train_loader:
+            X, lens, y = X.to(device), lens.to(device), y.to(device)
+            optimizer.zero_grad()
+            logits = model(X, lens)          # empaquetado ocurre dentro del modelo
+            loss = criterion(logits, y)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+
+        train_loss /= max(1, len(train_loader))
+        epoch_train_errors.append(train_loss)
+    
+        # --------- val ---------
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for Xv, lens_v, yv in val_loader:
+                Xv, lens_v, yv = Xv.to(device), lens_v.to(device), yv.to(device)
+                logits_v = model(Xv, lens_v)
+                loss_v = criterion(logits_v, yv)
+                val_loss += loss_v.item()
+        val_loss /= max(1, len(val_loader))
+        epoch_val_errors.append(val_loss)
+
+        # --------- early stopping ---------
+        if do_early_stopping:
+            early_stopping(val_loss)
+            if early_stopping.early_stop:
+                print(f"Detener entrenamiento en la época {epoch}. "
+                      f"Mejor val_loss: {early_stopping.best_score:.5f}")
+                break
+
+        # --------- logging ---------
+        if log_fn is not None and (epoch + 1) % log_every == 0:
+            log_fn(epoch, train_loss, val_loss, epochs)
+
+    return epoch_train_errors, epoch_val_errors
+
+
+
+
 def plot_training(train_errors, val_errors):
     # Graficar los errores
     plt.figure(figsize=(10, 5))  # Define el tamaño de la figura
@@ -164,7 +230,7 @@ def plot_training(train_errors, val_errors):
     plt.show()  # Muestra el gráfico
 
 
-def model_classification_report(model, dataloader, device, nclasses, output_dict=False, do_confusion_matrix=False):
+def model_classification_report(model, dataloader, device, nclasses, output_dict=False, do_confusion_matrix=False, packing=False):
     # Evaluación del modelo
     model.eval()
 
@@ -172,12 +238,23 @@ def model_classification_report(model, dataloader, device, nclasses, output_dict
     all_labels = []
 
     with torch.no_grad():
-        for inputs, labels in dataloader:
-            inputs = inputs.to(device)
-            outputs = model(inputs)
-            preds = torch.argmax(outputs, dim=1)
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.numpy())
+        if packing:
+            preds, gts = [], []
+            for X, lens, y in dataloader:
+                X, lens = X.to(device), lens.to(device)
+                logits = model(X, lens)
+                preds.append(logits.argmax(1).cpu())
+                gts.append(y)
+            all_preds = torch.cat(preds).numpy()
+            all_labels = torch.cat(gts).numpy()
+
+        else:
+            for inputs, labels in dataloader:
+                inputs = inputs.to(device)
+                outputs = model(inputs)
+                preds = torch.argmax(outputs, dim=1)
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(labels.numpy())
 
     # Calcular precisión (accuracy)
     accuracy = accuracy_score(all_labels, all_preds)
@@ -200,6 +277,7 @@ def model_classification_report(model, dataloader, device, nclasses, output_dict
         plot_confusion_matrix(cm, title="Confusion matrix")
 
     return report
+
 
 def show_tensor_image(tensor, title=None, vmin=None, vmax=None):
     """
