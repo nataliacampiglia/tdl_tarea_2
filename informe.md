@@ -1,4 +1,159 @@
+# Models
+## SIMPLE RNN
+### 1.2 SIMPLE RNN con packing sequence
+
+En la exploración de datos notamos que éstos contienen una gran cantidad de ceros al final. En una RNN simple, esto provoca que la red “se olvide” de la información inicial (que en este caso es la más relevante) y se concentre en los elementos finales de la secuencia, que en este caso son ceros sin contenido útil. Como resultado, el modelo aprende patrones irrelevantes y su desempeño empeora.
+
+En PyTorch tenemos la función pack_padded_sequence, que nos permite manejar secuencias con padding. Esta función permite que la RNN procese únicamente las partes no rellenas de cada secuencia, evitando que el modelo gaste recursos en procesar los ceros añadidos artificialmente.
+
+En nuestro caso, las secuencias ya incluyen ceros al final, por lo que podemos tomarlas como si les hubieramos aplicado padding. Debido a esto, solo es necesario utilizar el mecanismo de packing para que la RNN ignore correctamente el padding y se concentre en la información útil.
+
+La idea es probar si esto mejora el desempeño del modelo.
+
+Referencias: 
+
+https://docs.pytorch.org/docs/stable/generated/torch.nn.utils.rnn.pack_padded_sequence.html
+
+https://www.geeksforgeeks.org/deep-learning/how-do-you-handle-sequence-padding-and-packing-in-pytorch-for-rnns/
+
+# Training
 ## Training RNN
+### Observaciones RNN SIMPLE
+De todo lo que hicimos NADA la hizo funcionar bien, y menos en comparación con GRU y LSTM.
+
+Por alguna razon, dio mejor borrar 75 cerros "a mano" que usar packing. Estará bien implementado el packing???
+
+RNN borrando ceros a mano:
+
+Accuracy: 0.4307
+
+Reporte de clasificación:
+               precision    recall  f1-score   support
+
+           0       0.95      0.38      0.54     18118
+           1       0.09      0.54      0.15       556
+           2       0.18      0.47      0.26      1448
+           3       0.03      0.88      0.05       162
+           4       0.59      0.88      0.70      1608
+
+    accuracy                           0.43     21892
+   macro avg       0.37      0.63      0.34     21892
+weighted avg       0.84      0.43      0.52     21892
+
+RNN con packing:
+
+Accuracy: 0.3335
+
+Reporte de clasificación:
+               precision    recall  f1-score   support
+
+           0       0.92      0.28      0.43     18118
+           1       0.07      0.16      0.09       556
+           2       0.22      0.45      0.29      1448
+           3       0.02      0.83      0.04       162
+           4       0.24      0.81      0.37      1608
+
+    accuracy                           0.33     21892
+   macro avg       0.29      0.51      0.25     21892
+weighted avg       0.80      0.33      0.41     21892
+
+## Training GRU
+### Observaciones GRU
+GRU:
+
+Accuracy: 0.9818
+
+Reporte de clasificación:
+               precision    recall  f1-score   support
+
+           0       0.99      0.99      0.99     18118
+           1       0.85      0.81      0.83       556
+           2       0.93      0.95      0.94      1448
+           3       0.77      0.77      0.77       162
+           4       0.99      0.98      0.99      1608
+
+    accuracy                           0.98     21892
+   macro avg       0.91      0.90      0.90     21892
+weighted avg       0.98      0.98      0.98     21892
+
+GRU con sampler:
+
+Accuracy: 0.9637
+
+Reporte de clasificación:
+               precision    recall  f1-score   support
+
+           0       0.99      0.97      0.98     18118
+           1       0.57      0.84      0.68       556
+           2       0.87      0.96      0.91      1448
+           3       0.61      0.88      0.72       162
+           4       0.98      0.98      0.98      1608
+
+    accuracy                           0.96     21892
+   macro avg       0.81      0.92      0.86     21892
+weighted avg       0.97      0.96      0.97     21892
+
+La GRU con sampler no dio mal, pero empeoró versus la GRU "común".
+
+Z-score y augmentation, parecido a usar sampler.
+
+GRU bidireccional:
+
+Accuracy: 0.9863
+
+Reporte de clasificación:
+               precision    recall  f1-score   support
+
+           0       0.99      1.00      0.99     18118
+           1       0.90      0.83      0.86       556
+           2       0.96      0.96      0.96      1448
+           3       0.87      0.76      0.81       162
+           4       0.99      0.98      0.99      1608
+
+    accuracy                           0.99     21892
+   macro avg       0.94      0.91      0.92     21892
+weighted avg       0.99      0.99      0.99     21892
+
+La bidireccional da mucho mejor en accuracy que la GRU simple, que es la mejor que teníamos hasta ahora. Mejora también en las demás métricas pero no es tan notable la diferencia. Si se nota bastante mejora en las 2 clases que venian dando peor, que son la 1 y la 3.
+
+## Training LSTM
+
+Accuracy: 0.9646
+
+Reporte de clasificación:
+               precision    recall  f1-score   support
+
+           0       0.97      0.99      0.98     18118
+           1       0.93      0.55      0.69       556
+           2       0.93      0.87      0.90      1448
+           3       0.74      0.42      0.54       162
+           4       0.94      0.92      0.93      1608
+
+    accuracy                           0.96     21892
+   macro avg       0.90      0.75      0.81     21892
+weighted avg       0.96      0.96      0.96     21892
+
+En comparacion con la GRU "comun" y la bidireccional, dio peor.
+
+LSTM bidireccional:
+
+Accuracy: 0.9836
+
+Reporte de clasificación:
+               precision    recall  f1-score   support
+
+           0       0.99      0.99      0.99     18118
+           1       0.88      0.77      0.82       556
+           2       0.96      0.96      0.96      1448
+           3       0.81      0.80      0.81       162
+           4       0.99      0.99      0.99      1608
+
+    accuracy                           0.98     21892
+   macro avg       0.93      0.90      0.91     21892
+weighted avg       0.98      0.98      0.98     21892
+
+
+Mejora notoria vs la LSTM "comun". Comparable a la performance de la GRU bidireccional pero aun un poco por debajo.
 
 # Weight and Biases
 
