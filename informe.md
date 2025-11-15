@@ -1,3 +1,28 @@
+# Preprocesamiento
+
+En esta sección se prepararon los datos antes de entrenar los modelos.
+El objetivo fue dejar las señales listas para que las redes recurrentes pudieran aprender de forma estable y captar correctamente los patrones de cada latido.
+
+Las transformaciones aplicadas en esta etapa se implementaron de forma experimental, con el fin de evaluar si contribuían a mejorar el rendimiento y la capacidad de generalización del modelo.
+A continuación se detallan las acciones probadas:
+
+* Normalización: se aplicó z-score normalization para centrar y escalar las señales, garantizando que todas las características tuvieran media cero y desviación estándar uno. Esta técnica, aplicada estáticamente como parte del preprocesamiento inicial utilizando las estadísticas de todo el conjunto de entrenamiento, es fundamental para estabilizar los gradientes y acelerar la convergencia de la RNN. Se prefirió el Z-score sobre la Batch Normalization (Batch Norm) porque evita la dependencia de las estadísticas del mini-batch en cada paso de tiempo, lo cual es ventajoso en el manejo de datos secuenciales donde la distribución de las activaciones puede evolucionar y variar entre pasos.
+
+* Data augmentation: se añadió ruido gaussiano con una probabilidad del 70 %, utilizando desviaciones aleatorias en el rango [0.005, 0.02]. El objetivo fue aumentar la variabilidad del conjunto de entrenamiento, simulando pequeñas perturbaciones en las señales reales y evaluando si esto ayudaba a reducir el sobreajuste.
+
+* Verificación de calidad de datos: en la etapa de análisis se comprobó que el dataset no contenía valores nulos ni NaN, por lo que no fue necesario aplicar imputación ni limpieza adicional.
+
+* Ajuste de formato para modelos secuenciales: se incorporó padding y packing para probar si adaptar las secuencias en función de los ceros al final de cada señal mejoraba el desempeño del modelo. Esto permite procesar correctamente secuencias de distintas longitudes y evitar que los ceros finales afecten el aprendizaje.
+
+* Balanceo de clases: se implementó la función make_weighted_sampler para generar batches balanceados haciendo uso de WeightedRandomSampler, para poder aumentar la frecuencia de las clases minoritarias, con el objetivo de analizar si esta estrategia reducía el sesgo del modelo hacia la clase “Normal”.
+
+## Data Augmentation 
+
+Decidimos probar solamente ruido Gaussiano para data augmentation para buscar mitigar el overfitting sin alterar mucho la estructura de los datos.
+
+Usando esta técnica perturbamos sutilmente las muestras de la entrada obligando a las redes a contemplar variaciones e imprecisiones en los datos.
+
+
 # Models
 ## SIMPLE RNN
 ### 1.2 SIMPLE RNN con packing sequence
@@ -193,3 +218,12 @@ Se observa además una tendencia en la que las arquitecturas más grandes, espec
 
 La LSTM original alcanza el mejor equilibrio gracias a una configuración intermedia entre hidden_dim y n_layers, que ofrece buena capacidad de representación sin caer en sobreajuste.
 Por este motivo, se mantiene como la arquitectura final seleccionada.
+
+# Conclusiones finales
+
+Trabajamos con un dataset que tiene un gran desbalance de clases.
+
+Comprobamos que la GRU y LSTM bidireccionales performan bien incluso SIN balanceo de clases. Esto no quiere decir que no haya que abordar el problema del desbalance pero estas redes en su modo bidireccional tienen la capacidad de aprender patrones mas sutiles, y entendemos que esto fue lo que las ayudó a capturar correctamente incluso las clases minoritarias.
+
+La RNN comun dio mal para todos los casos, no encontramos forma de mejorarla lo suficiente como para compararla con GRU o LSTM.
+
